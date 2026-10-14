@@ -47,6 +47,7 @@ docker push foxweb/vizualizator-trekov:latest
 
 ```bash
 docker pull foxweb/vizualizator-trekov:latest
+docker rm -f vizualizator-trekov
 docker run -d \
   --name vizualizator-trekov \
   --restart unless-stopped \
