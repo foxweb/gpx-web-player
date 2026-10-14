@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+.git
+.github
+.vercel
+coverage
+images
+*.md
+.env*
+npm-debug.log*
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts

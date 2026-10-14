@@ -94,6 +94,7 @@ export default function TrackMap({
         zoomSnap: 0,
         zoomDelta: 0.5,
         preferCanvas: true,
+        fadeAnimation: false,
       })
       const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution:
@@ -106,7 +107,6 @@ export default function TrackMap({
         updateWhenZooming: false,
         updateInterval: 100,
         keepBuffer: 3,
-        fadeAnimation: false,
       }).addTo(map)
 
       const applyCamera = (lat: number, lon: number, zoom: number) => {
