@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useEffect, useRef, useState, type ChangeEvent } from "react"
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react"
 import { ElevationProfile } from "@/components/elevation-profile"
 import { ThemeMenu } from "@/components/theme-menu"
 import { TrackScrubber } from "@/components/track-scrubber"
@@ -19,7 +19,14 @@ import {
   type PlaybackRate,
 } from "@/lib/format"
 import { STOP_ZOOM, zoomForSpeed } from "@/lib/geo"
-import { GpxError, loadGpx, sampleAt, type Stop, type Track } from "@/lib/gpx"
+import {
+  GpxError,
+  loadGpx,
+  routeAverageSpeedKmh,
+  sampleAt,
+  type Stop,
+  type Track,
+} from "@/lib/gpx"
 import { advancePlayback } from "@/lib/playback"
 import { clearLastGpx, readLastGpx, saveLastGpx } from "@/lib/stored-gpx"
 
@@ -319,18 +326,29 @@ export function Player() {
         {track && sample && (
           <>
             <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Stat label="Дистанция" value={formatDistance(track.distanceM)} />
+              <Stat
+                label="Дистанция"
+                value={formatDistance(sample.distM)}
+                hint={`всего ${formatDistance(track.distanceM)}`}
+              />
               <Stat
                 label="Время"
                 value={formatElapsed(cursorTime - track.startTime)}
                 hint={clockLabel}
               />
-              <Stat label="Скорость" value={formatSpeed(sample.speedKmh)} />
+              <Stat
+                label="Скорость"
+                value={formatSpeed(sample.speedKmh)}
+                hint={`средняя ${formatSpeed(
+                  routeAverageSpeedKmh(track.distanceM, track.endTime - track.startTime),
+                )}`}
+              />
               <Stat label="Остановки" value={String(track.stops.length)} />
             </dl>
 
             <div className="flex flex-wrap items-center gap-2">
               <Button onClick={play} disabled={playing}>
+                <TapePlay />
                 Старт
               </Button>
               <Button
@@ -338,12 +356,15 @@ export function Player() {
                 onClick={() => setPlaying(false)}
                 disabled={!playing}
               >
+                <TapePause />
                 Пауза
               </Button>
               <Button variant="outline" onClick={restart}>
+                <TapeRestart />
                 Заново
               </Button>
               <Button variant="outline" onClick={closeTrack}>
+                <TapeEject />
                 Закрыть трек
               </Button>
               <div className="mx-1 hidden h-6 w-px bg-border sm:block" />
@@ -543,6 +564,49 @@ function StopList({
         })}
       </ul>
     </section>
+  )
+}
+
+function TapeGlyph({ children }: { children: ReactNode }) {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3.5 fill-current">
+      {children}
+    </svg>
+  )
+}
+
+function TapePlay() {
+  return (
+    <TapeGlyph>
+      <polygon points="3,1.5 14,8 3,14.5" />
+    </TapeGlyph>
+  )
+}
+
+function TapePause() {
+  return (
+    <TapeGlyph>
+      <rect x="2.5" y="1.5" width="3.5" height="13" rx="0.4" />
+      <rect x="10" y="1.5" width="3.5" height="13" rx="0.4" />
+    </TapeGlyph>
+  )
+}
+
+function TapeRestart() {
+  return (
+    <TapeGlyph>
+      <rect x="1.5" y="1.5" width="2.5" height="13" rx="0.4" />
+      <polygon points="14.5,1.5 6,8 14.5,14.5" />
+    </TapeGlyph>
+  )
+}
+
+function TapeEject() {
+  return (
+    <TapeGlyph>
+      <polygon points="8,1.5 15,9 1,9" />
+      <rect x="1.5" y="11.5" width="13" height="2.5" rx="0.4" />
+    </TapeGlyph>
   )
 }
 

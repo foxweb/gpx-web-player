@@ -9,7 +9,7 @@ import {
   STOP_ZOOM,
   SLOW_ZOOM,
 } from "./geo.ts"
-import { buildTrack, loadGpx, nearestOnTrack, sampleAt } from "./gpx.ts"
+import { buildTrack, loadGpx, nearestOnTrack, routeAverageSpeedKmh, sampleAt } from "./gpx.ts"
 
 const START = Date.parse("2024-06-01T08:00:00Z")
 
@@ -42,6 +42,8 @@ describe("recorded speed", () => {
     assert.equal(sampleAt(track, track.startTime).speedKmh, 0)
     const mid = sampleAt(track, track.startTime + 50_000)
     assert.ok(Math.abs(mid.speedKmh - 36) < 0.5)
+    assert.ok(Math.abs(mid.distM - track.distanceM / 2) < 1)
+    assert.ok(Math.abs(routeAverageSpeedKmh(track.distanceM, 100_000) - 36) < 0.5)
     assert.ok(Math.abs(mid.lat - (track.points[0].lat + track.points[1].lat) / 2) < 1e-6)
   })
 })
@@ -107,6 +109,50 @@ describe("stops", () => {
     raw.push(at(120, 0, 55_000))
     for (let t = 60_000; t <= 105_000; t += 5_000) raw.push(at(120, 0, t))
     assert.equal(buildTrack(raw).stops.length, 2)
+  })
+
+  it("cuts a multi-hour standstill at the end and keeps the arrival time", () => {
+    const raw = [at(0, 0, 0), at(1000, 0, 100_000)]
+    for (let t = 100_000; t <= 100_000 + 3 * 60 * 60 * 1000; t += 5 * 60 * 1000) {
+      raw.push(at(1000, 0, t))
+    }
+    const track = buildTrack(raw)
+    assert.equal(track.endTime - track.startTime, 100_000)
+    assert.ok(Math.abs(track.distanceM - 1000) < 5)
+    assert.equal(track.stops.length, 0)
+  })
+
+  it("cuts an hour of standing at the finish", () => {
+    const raw = [at(0, 0, 0), at(1000, 0, 100_000)]
+    for (let t = 100_000; t <= 100_000 + 60 * 60 * 1000; t += 60_000) {
+      raw.push(at(1000, 0, t))
+    }
+    const track = buildTrack(raw)
+    assert.equal(track.endTime - track.startTime, 100_000)
+    assert.equal(track.stops.length, 0)
+  })
+
+  it("keeps a short stop at the finish", () => {
+    const raw = [at(0, 0, 0), at(1000, 0, 100_000)]
+    for (let t = 100_000; t <= 100_000 + 20 * 60 * 1000; t += 60_000) {
+      raw.push(at(1000, 0, t))
+    }
+    const track = buildTrack(raw)
+    assert.equal(track.endTime - track.startTime, 100_000 + 20 * 60 * 1000)
+    assert.equal(track.stops.length, 1)
+  })
+
+  it("keeps a multi-hour stop when the ride continues after it", () => {
+    const raw = [at(0, 0, 0), at(500, 0, 50_000)]
+    for (let t = 50_000; t <= 50_000 + 3 * 60 * 60 * 1000; t += 5 * 60 * 1000) {
+      raw.push(at(500, 0, t))
+    }
+    const departed = 50_000 + 3 * 60 * 60 * 1000
+    raw.push(at(2000, 0, departed + 150_000))
+    const track = buildTrack(raw)
+    assert.equal(track.endTime - track.startTime, departed + 150_000)
+    assert.equal(track.stops.length, 1)
+    assert.ok(track.stops[0].durationMs > 60 * 60 * 1000)
   })
 
   it("keeps stops separated by more than two minutes", () => {

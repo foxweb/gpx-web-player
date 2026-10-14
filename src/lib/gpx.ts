@@ -5,6 +5,9 @@ const STOP_MAX_SPEED_KMH = 2.2
 const STOP_MIN_MS = 30_000
 const MERGE_DISTANCE_M = 70
 const MERGE_GAP_MS = 2 * 60 * 1000
+/** A recording that keeps sitting after arrival. A finish under half an hour stays. */
+const TRAILING_IDLE_MS = 30 * 60 * 1000
+const TRAILING_IDLE_RADIUS_M = 80
 
 export class GpxError extends Error {
   constructor(message: string) {
@@ -46,6 +49,7 @@ export type Sample = {
   lat: number
   lon: number
   ele: number | null
+  distM: number
   speedKmh: number
   stopped: boolean
 }
@@ -62,6 +66,13 @@ type RawPoint = {
   lon: number
   ele: number | null
   time: number | null
+}
+
+/** Distance over the whole recording, including time spent stopped. */
+export function routeAverageSpeedKmh(distanceM: number, durationMs: number): number {
+  const seconds = durationMs / 1000
+  if (!(seconds > 0) || !Number.isFinite(distanceM)) return 0
+  return (Math.max(0, distanceM) / seconds) * 3.6
 }
 
 export function loadGpx(xml: string): Track {
@@ -89,15 +100,15 @@ export function buildTrack(raw: RawPoint[]): Track {
   }
 
   const sorted = [...timed].sort((a, b) => a.time - b.time)
-  const points: TrackPoint[] = []
+  const measured: TrackPoint[] = []
   let dist = 0
   for (let i = 0; i < sorted.length; i++) {
     const point = sorted[i]
     if (i > 0) {
-      const prev = points[i - 1]
+      const prev = measured[i - 1]
       dist += haversine(prev.lat, prev.lon, point.lat, point.lon)
     }
-    points.push({
+    measured.push({
       lat: point.lat,
       lon: point.lon,
       ele: point.ele,
@@ -105,6 +116,9 @@ export function buildTrack(raw: RawPoint[]): Track {
       dist,
     })
   }
+
+  const points = trimTrailingIdle(measured)
+  dist = points[points.length - 1].dist
 
   const startTime = points[0].time
   const endTime = points[points.length - 1].time
@@ -156,6 +170,7 @@ export function sampleAt(track: Track, time: number): Sample {
   const ele =
     a.ele != null && b.ele != null ? a.ele + (b.ele - a.ele) * fraction : null
   const speedKmh = t <= start ? 0 : segmentSpeed(a, b)
+  const distM = a.dist + (b.dist - a.dist) * fraction
   const stop =
     track.stops.find((item) => t >= item.startTime && t <= item.endTime) ??
     null
@@ -165,6 +180,7 @@ export function sampleAt(track: Track, time: number): Sample {
     lat: stop ? stop.lat : lat,
     lon: stop ? stop.lon : lon,
     ele,
+    distM,
     speedKmh,
     stopped: stop != null,
   }
@@ -198,6 +214,28 @@ export function nearestOnTrack(
   }
 
   return best
+}
+
+/**
+ * Drops a long stationary tail. The anchor is the last recorded point, not a
+ * saved place: if the file spends at least half an hour inside 80 m of where
+ * it finally stopped, the recording ends when it first reached that spot.
+ */
+function trimTrailingIdle(points: TrackPoint[]): TrackPoint[] {
+  if (points.length < 3) return points
+  const end = points[points.length - 1]
+  let arrival = points.length - 1
+  for (let i = points.length - 2; i >= 1; i--) {
+    if (
+      haversine(points[i].lat, points[i].lon, end.lat, end.lon) > TRAILING_IDLE_RADIUS_M
+    ) {
+      break
+    }
+    arrival = i
+  }
+  if (arrival >= points.length - 1) return points
+  if (end.time - points[arrival].time < TRAILING_IDLE_MS) return points
+  return points.slice(0, arrival + 1)
 }
 
 function segmentSpeed(a: TrackPoint, b: TrackPoint): number {
