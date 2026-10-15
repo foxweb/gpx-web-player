@@ -5,7 +5,8 @@ import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "r
 import { ElevationProfile } from "@/components/elevation-profile"
 import { ThemeMenu } from "@/components/theme-menu"
 import { TrackScrubber } from "@/components/track-scrubber"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { cn } from "cn"
 import {
   DEFAULT_PLAYBACK_RATE,
   PLAYBACK_RATES,
@@ -44,7 +45,6 @@ const TrackMap = dynamic(() => import("@/components/track-map"), {
 })
 
 export function Player() {
-  const inputRef = useRef<HTMLInputElement>(null)
   const cursorRef = useRef(0)
   const [track, setTrack] = useState<Track | null>(null)
   const [cursorTime, setCursorTime] = useState(0)
@@ -148,10 +148,6 @@ export function Player() {
       })
   }, [])
 
-  function openFile() {
-    inputRef.current?.click()
-  }
-
   function applyTrack(next: Track, name: string) {
     cursorRef.current = next.startTime
     dwellRef.current = 0
@@ -160,6 +156,34 @@ export function Player() {
     setFileName(name)
     setFollow(true)
     setProfileReset((value) => value + 1)
+  }
+
+  async function loadDemo() {
+    const id = ++loadId.current
+    setReading(true)
+    setError(null)
+    setPlaying(false)
+    try {
+      const response = await fetch("/demo.gpx")
+      if (!response.ok) throw new Error("demo")
+      const text = await response.text()
+      if (id !== loadId.current) return
+      const next = loadGpx(text)
+      const name = "Ласточка, Пенза.gpx"
+      applyTrack(next, name)
+      try {
+        await saveLastGpx({ name, text })
+      } catch {
+        if (id === loadId.current) {
+          setError("Трек открыт, но не удалось сохранить его для следующей загрузки.")
+        }
+      }
+    } catch (reason) {
+      if (id !== loadId.current) return
+      setError(reason instanceof GpxError ? reason.message : "Не удалось открыть демо-трек.")
+    } finally {
+      if (id === loadId.current) setReading(false)
+    }
   }
 
   async function onFile(event: ChangeEvent<HTMLInputElement>) {
@@ -282,17 +306,11 @@ export function Player() {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <ThemeMenu />
-            <Button size="lg" onClick={openFile}>
-              Открыть GPX
+            <Button size="lg" variant="outline" onClick={loadDemo} disabled={reading}>
+              Демо
             </Button>
+            <OpenGpxButton size="lg" onChange={onFile} />
           </div>
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".gpx,application/gpx+xml,application/xml,text/xml"
-            className="sr-only"
-            onChange={onFile}
-          />
         </header>
 
         {reading && (
@@ -314,12 +332,16 @@ export function Player() {
           <section className="rounded-xl border border-dashed bg-card px-6 py-14 text-center shadow-sm">
             <h2 className="text-lg font-semibold">Трек ещё не открыт</h2>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              Нажмите «Открыть GPX» и выберите запись маршрута. На карте
-              появятся только точки из файла — пример трека не подставляется.
+              Нажмите «Открыть GPX» и выберите запись маршрута или «Демо»,
+              чтобы открыть публичный GPS-след. Свой пример приложение само
+              не подставляет.
             </p>
-            <Button className="mt-5" onClick={openFile}>
-              Открыть GPX
-            </Button>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              <OpenGpxButton onChange={onFile} />
+              <Button variant="outline" onClick={loadDemo} disabled={reading}>
+                Демо
+              </Button>
+            </div>
           </section>
         )}
 
@@ -564,6 +586,47 @@ function StopList({
         })}
       </ul>
     </section>
+  )
+}
+
+const GPX_ACCEPT = ".gpx,application/gpx+xml,application/xml,text/xml"
+
+function isIos() {
+  const ua = navigator.userAgent
+  return (
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  )
+}
+
+function OpenGpxButton({
+  onChange,
+  size = "default",
+  className,
+}: {
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void
+  size?: "default" | "lg"
+  className?: string
+}) {
+  const [accept, setAccept] = useState(GPX_ACCEPT)
+  useEffect(() => {
+    if (isIos()) setAccept("")
+  }, [])
+
+  return (
+    <label className={cn(buttonVariants({ size }), "relative cursor-pointer", className)}>
+      Открыть GPX
+      {/* iOS Safari greys out .gpx when accept lists that extension, and it
+          ignores a scripted click on a clipped input. The tap must hit the
+          control itself. Desktop keeps the GPX filter. */}
+      <input
+        type="file"
+        accept={accept || undefined}
+        aria-label="Выбрать файл GPX"
+        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+        onChange={onChange}
+      />
+    </label>
   )
 }
 
