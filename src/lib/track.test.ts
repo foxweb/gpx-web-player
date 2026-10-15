@@ -9,7 +9,14 @@ import {
   STOP_ZOOM,
   SLOW_ZOOM,
 } from "./geo.ts"
-import { buildTrack, loadGpx, nearestOnTrack, routeAverageSpeedKmh, sampleAt } from "./gpx.ts"
+import {
+  buildTrack,
+  loadGpx,
+  movementTrend,
+  nearestOnTrack,
+  routeAverageSpeedKmh,
+  sampleAt,
+} from "./gpx.ts"
 
 const START = Date.parse("2024-06-01T08:00:00Z")
 
@@ -196,6 +203,48 @@ describe("elevation", () => {
     assert.ok(mid.ele != null && Math.abs(mid.ele - 110) < 0.01)
     assert.equal(track.eleMin, 100)
     assert.equal(track.eleMax, 120)
+  })
+})
+
+describe("movement trend", () => {
+  it("points up while climbing and speeding up", () => {
+    const track = buildTrack([
+      at(0, 0, 0, 100),
+      at(20, 0, 10_000, 102),
+      at(80, 0, 20_000, 106),
+    ])
+    const trend = movementTrend(track, track.startTime + 10_000)
+    assert.equal(trend.elevation, "up")
+    assert.equal(trend.speed, "up")
+  })
+
+  it("points down while descending and slowing", () => {
+    const track = buildTrack([
+      at(0, 0, 0, 120),
+      at(60, 0, 10_000, 112),
+      at(80, 0, 20_000, 104),
+    ])
+    const trend = movementTrend(track, track.startTime + 10_000)
+    assert.equal(trend.elevation, "down")
+    assert.equal(trend.speed, "down")
+  })
+
+  it("stays quiet on a steady stretch and without elevation", () => {
+    const steady = buildTrack([
+      at(0, 0, 0, 100),
+      at(30, 0, 10_000, 100),
+      at(60, 0, 20_000, 100),
+    ])
+    const flat = movementTrend(steady, steady.startTime + 10_000)
+    assert.equal(flat.elevation, null)
+    assert.equal(flat.speed, null)
+
+    const noEle = buildTrack([
+      at(0, 0, 0, null),
+      at(20, 0, 10_000, null),
+      at(80, 0, 20_000, null),
+    ])
+    assert.equal(movementTrend(noEle, noEle.startTime + 10_000).elevation, null)
   })
 })
 

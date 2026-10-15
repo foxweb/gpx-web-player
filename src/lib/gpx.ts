@@ -54,6 +54,14 @@ export type Sample = {
   stopped: boolean
 }
 
+/** Rising or falling around the cursor. A flat stretch has no direction. */
+export type Trend = "up" | "down"
+
+export type MovementTrend = {
+  elevation: Trend | null
+  speed: Trend | null
+}
+
 export type TrackHit = {
   lat: number
   lon: number
@@ -142,25 +150,74 @@ export function buildTrack(raw: RawPoint[]): Track {
   }
 }
 
-export function sampleAt(track: Track, time: number): Sample {
-  const { points } = track
-  const start = points[0].time
-  const end = points[points.length - 1].time
-  const t = Math.min(end, Math.max(start, time))
+const TREND_HALF_MS = 6_000
+const TREND_MIN_SPAN_MS = 3_000
+const ELE_TREND_M = 0.3
+const SPEED_TREND_KMH = 1.2
 
+function segmentIndex(points: TrackPoint[], time: number): number {
   let index = 0
   let lo = 0
   let hi = points.length - 2
   while (lo <= hi) {
     const mid = (lo + hi) >> 1
-    if (points[mid].time <= t) {
+    if (points[mid].time <= time) {
       index = mid
       lo = mid + 1
     } else {
       hi = mid - 1
     }
   }
+  return index
+}
 
+/** Climb or descent, and whether speed is picking up or dropping, over a short window. */
+export function movementTrend(track: Track, time: number): MovementTrend {
+  const { points } = track
+  const start = points[0].time
+  const end = points[points.length - 1].time
+  const t = Math.min(end, Math.max(start, time))
+  let before = t - TREND_HALF_MS
+  let after = t + TREND_HALF_MS
+  if (before < start) {
+    after = Math.min(end, after + (start - before))
+    before = start
+  }
+  if (after > end) {
+    before = Math.max(start, before - (after - end))
+    after = end
+  }
+  if (after - before < TREND_MIN_SPAN_MS) {
+    return { elevation: null, speed: null }
+  }
+
+  const earlier = sampleAt(track, before)
+  const later = sampleAt(track, after)
+  let elevation: Trend | null = null
+  if (earlier.ele != null && later.ele != null) {
+    const delta = later.ele - earlier.ele
+    if (delta >= ELE_TREND_M) elevation = "up"
+    else if (delta <= -ELE_TREND_M) elevation = "down"
+  }
+
+  const earlyIndex = segmentIndex(points, before)
+  const lateIndex = segmentIndex(points, after)
+  const speedEarlier = segmentSpeed(points[earlyIndex], points[earlyIndex + 1])
+  const speedLater = segmentSpeed(points[lateIndex], points[lateIndex + 1])
+  const speedDelta = speedLater - speedEarlier
+  let speed: Trend | null = null
+  if (speedDelta >= SPEED_TREND_KMH) speed = "up"
+  else if (speedDelta <= -SPEED_TREND_KMH) speed = "down"
+
+  return { elevation, speed }
+}
+
+export function sampleAt(track: Track, time: number): Sample {
+  const { points } = track
+  const start = points[0].time
+  const end = points[points.length - 1].time
+  const t = Math.min(end, Math.max(start, time))
+  const index = segmentIndex(points, t)
   const a = points[index]
   const b = points[index + 1] ?? a
   const span = b.time - a.time

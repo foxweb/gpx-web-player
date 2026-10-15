@@ -1,6 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
+import { ArrowDown, ArrowUp } from "lucide-react"
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react"
 import { ElevationProfile } from "@/components/elevation-profile"
 import { ThemeMenu } from "@/components/theme-menu"
@@ -24,9 +25,11 @@ import {
   GpxError,
   loadGpx,
   routeAverageSpeedKmh,
+  movementTrend,
   sampleAt,
   type Stop,
   type Track,
+  type Trend,
 } from "@/lib/gpx"
 import { advancePlayback } from "@/lib/playback"
 import { clearLastGpx, readLastGpx, saveLastGpx } from "@/lib/stored-gpx"
@@ -273,6 +276,7 @@ export function Player() {
   }
 
   const sample = track ? sampleAt(track, cursorTime) : null
+  const trend = track ? movementTrend(track, cursorTime) : null
   const progress = track
     ? ((cursorTime - track.startTime) / (track.endTime - track.startTime)) * 100
     : 0
@@ -347,7 +351,7 @@ export function Player() {
 
         {track && sample && (
           <>
-            <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
               <Stat
                 label="Дистанция"
                 value={formatDistance(sample.distM)}
@@ -364,6 +368,17 @@ export function Player() {
                 hint={`средняя ${formatSpeed(
                   routeAverageSpeedKmh(track.distanceM, track.endTime - track.startTime),
                 )}`}
+                trend={trend?.speed ?? "flat"}
+              />
+              <Stat
+                label="Высота"
+                value={sample.ele == null ? "—" : formatElevation(sample.ele)}
+                hint={
+                  track.eleMin != null && track.eleMax != null
+                    ? `мин ${formatElevation(track.eleMin)} · макс ${formatElevation(track.eleMax)}`
+                    : undefined
+                }
+                trend={sample.ele == null ? undefined : (trend?.elevation ?? "flat")}
               />
               <Stat label="Остановки" value={String(track.stops.length)} />
             </dl>
@@ -532,19 +547,44 @@ function Stat({
   label,
   value,
   hint,
+  trend,
 }: {
   label: string
   value: string
   hint?: string
+  trend?: Trend | "flat"
 }) {
   return (
     <div className="rounded-xl border bg-card px-3 py-2 shadow-sm">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-lg font-semibold tabular-nums">{value}</dd>
+      <dd className="flex items-center gap-1 text-lg font-semibold tabular-nums">
+        {value}
+        {trend ? <TrendArrow direction={trend} /> : null}
+      </dd>
       {hint ? (
         <dd className="text-sm font-medium tabular-nums text-muted-foreground">{hint}</dd>
       ) : null}
     </div>
+  )
+}
+
+function TrendArrow({ direction }: { direction: Trend | "flat" }) {
+  if (direction === "flat") {
+    return <span className="inline-block size-4 shrink-0" />
+  }
+  const up = direction === "up"
+  const Icon = up ? ArrowUp : ArrowDown
+  return (
+    <span
+      role="img"
+      aria-label={up ? "растёт" : "снижается"}
+      className={cn(
+        "inline-flex size-4 shrink-0",
+        up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400",
+      )}
+    >
+      <Icon className="size-4" strokeWidth={2.5} aria-hidden="true" />
+    </span>
   )
 }
 
