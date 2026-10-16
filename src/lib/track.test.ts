@@ -16,7 +16,6 @@ import {
   nearestOnTrack,
   routeAverageSpeedKmh,
   sampleAt,
-  GpxError,
 } from "./gpx.ts"
 
 const START = Date.parse("2024-06-01T08:00:00Z")
@@ -166,8 +165,8 @@ describe("stops", () => {
   it("keeps stops separated by more than two minutes", () => {
     const raw = []
     for (let t = 0; t <= 45_000; t += 5_000) raw.push(at(0, 0, t))
-    raw.push(at(40, 0, 200_000))
-    for (let t = 200_000; t <= 250_000; t += 5_000) raw.push(at(40, 0, t))
+    raw.push(at(55, 0, 200_000))
+    for (let t = 200_000; t <= 250_000; t += 5_000) raw.push(at(55, 0, t))
     assert.equal(buildTrack(raw).stops.length, 2)
   })
 })
@@ -264,21 +263,15 @@ describe("gpx parser", () => {
   })
 
   it("rejects a file without timestamps", () => {
-    try {
-      loadGpx(`<gpx><trk><trkseg>
-        <trkpt lat="55" lon="37"><ele>10</ele></trkpt>
-        <trkpt lat="55.01" lon="37"><ele>12</ele></trkpt>
-      </trkseg></trk></gpx>`)
-      assert.fail("Should have thrown an error")
-    } catch (err) {
-      assert.ok(err instanceof GpxError)
-    }
+    assert.throws(
+      () =>
+        loadGpx(`<gpx><trk><trkseg>
+          <trkpt lat="55" lon="37"><ele>10</ele></trkpt>
+          <trkpt lat="55.01" lon="37"><ele>12</ele></trkpt>
+        </trkseg></trk></gpx>`),
+      /меток времени/,
+    )
   })
-
-
-
-
-
 
   it("rejects a file that is not GPX", () => {
     assert.throws(() => loadGpx("<html><body>нет</body></html>"), /не похож на GPX/)
