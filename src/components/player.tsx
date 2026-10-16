@@ -2,7 +2,14 @@
 
 import dynamic from "next/dynamic"
 import { ArrowDown, ArrowUp } from "lucide-react"
-import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react"
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ChangeEvent,
+  type ReactNode,
+} from "react"
 import { ElevationProfile } from "@/components/elevation-profile"
 import { ThemeMenu } from "@/components/theme-menu"
 import { TrackScrubber } from "@/components/track-scrubber"
@@ -643,6 +650,14 @@ function isIos() {
   )
 }
 
+function gpxAccept() {
+  return isIos() ? "" : GPX_ACCEPT
+}
+
+function subscribeNoop() {
+  return () => {}
+}
+
 function OpenGpxButton({
   onChange,
   size = "default",
@@ -652,10 +667,7 @@ function OpenGpxButton({
   size?: "default" | "lg"
   className?: string
 }) {
-  const [accept] = useState(() => isIos() ? "" : GPX_ACCEPT)
-  useEffect(() => {
-    // No longer need to setAccept here
-  }, [])
+  const accept = useSyncExternalStore(subscribeNoop, gpxAccept, () => GPX_ACCEPT)
 
   return (
     <label className={cn(buttonVariants({ size }), "relative cursor-pointer", className)}>
