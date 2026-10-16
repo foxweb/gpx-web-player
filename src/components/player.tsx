@@ -61,8 +61,12 @@ export function Player() {
   const [recenterToken, setRecenterToken] = useState(0)
   const loadId = useRef(0)
   const dwellRef = useRef(0)
-  const keysRef = useRef({
-    track: null as Track | null,
+  const keysRef = useRef<{
+    track: Track | null
+    seek: (time: number, center?: boolean) => void
+    togglePlay: () => void
+  }>({
+    track: null,
     seek: () => {},
     togglePlay: () => {},
   })
