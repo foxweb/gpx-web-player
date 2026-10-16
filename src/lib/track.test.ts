@@ -270,10 +270,10 @@ describe("gpx parser", () => {
         <trkpt lat="55.01" lon="37"><ele>12</ele></trkpt>
       </trkseg></trk></gpx>`)
       assert.fail("Should have thrown an error")
-    } catch (err: any) {
-      assert.ok(err instanceof GpxError)
-      const msg = String(err.message)
-      assert.ok(msg.toLowerCase().includes("метки"))
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err))
+      assert.ok(error instanceof GpxError)
+      assert.ok(error.message.toLowerCase().includes("метки"))
     }
   })
 
