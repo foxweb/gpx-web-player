@@ -16,6 +16,7 @@ import {
   nearestOnTrack,
   routeAverageSpeedKmh,
   sampleAt,
+  GpxError,
 } from "./gpx.ts"
 
 const START = Date.parse("2024-06-01T08:00:00Z")
@@ -263,15 +264,22 @@ describe("gpx parser", () => {
   })
 
   it("rejects a file without timestamps", () => {
-    assert.throws(
-      () =>
-        loadGpx(`<gpx><trk><trkseg>
-          <trkpt lat="55" lon="37"><ele>10</ele></trkpt>
-          <trkpt lat="55.01" lon="37"><ele>12</ele></trkpt>
-        </trkseg></trk></gpx>`),
-      /метки времени/,
-    )
+    try {
+      loadGpx(`<gpx><trk><trkseg>
+        <trkpt lat="55" lon="37"><ele>10</ele></trkpt>
+        <trkpt lat="55.01" lon="37"><ele>12</ele></trkpt>
+      </trkseg></trk></gpx>`)
+      assert.fail("Should have thrown an error")
+    } catch (err: any) {
+      assert.ok(err instanceof GpxError)
+      const msg = String(err.message)
+      assert.ok(msg.toLowerCase().includes("метки"))
+    }
   })
+
+
+
+
 
   it("rejects a file that is not GPX", () => {
     assert.throws(() => loadGpx("<html><body>нет</body></html>"), /не похож на GPX/)
