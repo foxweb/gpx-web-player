@@ -56,13 +56,15 @@ export default function TrackMap({
   const recenterTokenRef = useRef(recenterToken)
   const pendingRecenterRef = useRef(false)
 
-  pointsRef.current = points
-  cursorRef.current = cursor
-  onSeekRef.current = onSeek
-  onStopSeekRef.current = onStopSeek
-  onFollowOffRef.current = onFollowOff
-  clockRef.current = clockLabel
-  followRef.current = follow
+  useEffect(() => {
+    pointsRef.current = points
+    cursorRef.current = cursor
+    onSeekRef.current = onSeek
+    onStopSeekRef.current = onStopSeek
+    onFollowOffRef.current = onFollowOff
+    clockRef.current = clockLabel
+    followRef.current = follow
+  }, [points, cursor, onSeek, onStopSeek, onFollowOff, clockLabel, follow])
 
   useEffect(() => {
     jumpRef.current = true

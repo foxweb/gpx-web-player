@@ -61,11 +61,16 @@ export function ElevationProfile({
     [points, startTime, endTime],
   )
   const active = view ?? full
-  viewRef.current = active
 
   useEffect(() => {
-    setView(null)
-  }, [points, resetToken])
+    viewRef.current = active
+  }, [active])
+
+  useEffect(() => {
+    if (view !== null) {
+      setTimeout(() => setView(null), 0)
+    }
+  }, [points, resetToken, view])
 
   useEffect(() => {
     const wrap = wrapRef.current

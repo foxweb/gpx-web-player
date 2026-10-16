@@ -12,15 +12,13 @@ const OPTIONS: { id: ThemeChoice; label: string; icon: typeof Sun }[] = [
 ]
 
 export function ThemeMenu() {
-  const [choice, setChoice] = useState<ThemeChoice>("system")
+  const [choice, setChoice] = useState<ThemeChoice>(() => readTheme())
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
 
   useLayoutEffect(() => {
-    const stored = readTheme()
-    setChoice(stored)
-    applyTheme(stored)
+    applyTheme(choice)
   }, [])
 
   useEffect(() => {

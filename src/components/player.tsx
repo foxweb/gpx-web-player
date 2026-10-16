@@ -648,9 +648,9 @@ function OpenGpxButton({
   size?: "default" | "lg"
   className?: string
 }) {
-  const [accept, setAccept] = useState(GPX_ACCEPT)
+  const [accept, setAccept] = useState(() => isIos() ? "" : GPX_ACCEPT)
   useEffect(() => {
-    if (isIos()) setAccept("")
+    // No longer need to setAccept here
   }, [])
 
   return (
