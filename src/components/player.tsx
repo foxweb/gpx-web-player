@@ -63,7 +63,7 @@ export function Player() {
   const dwellRef = useRef(0)
   const keysRef = useRef({
     track: null as Track | null,
-    seek: (_time: number, _center?: boolean) => {},
+    seek: () => {},
     togglePlay: () => {},
   })
 
@@ -648,7 +648,7 @@ function OpenGpxButton({
   size?: "default" | "lg"
   className?: string
 }) {
-  const [accept, setAccept] = useState(() => isIos() ? "" : GPX_ACCEPT)
+  const [accept] = useState(() => isIos() ? "" : GPX_ACCEPT)
   useEffect(() => {
     // No longer need to setAccept here
   }, [])

@@ -19,7 +19,7 @@ export function ThemeMenu() {
 
   useLayoutEffect(() => {
     applyTheme(choice)
-  }, [])
+  }, [choice])
 
   useEffect(() => {
     if (choice !== "system") return

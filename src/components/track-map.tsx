@@ -343,7 +343,6 @@ export default function TrackMap({
     }
     // Stops and the track geometry are redrawn when the file changes.
     // Cursor motion is applied by the animation loop, not by recreating the map.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points, stops])
 
   return (
